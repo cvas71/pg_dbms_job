@@ -1,0 +1,24 @@
+CREATE PROCEDURE dbms_job.interval(IN jobid bigint, IN job_interval text)
+    LANGUAGE plpgsql
+AS
+$$
+DECLARE
+    next_date timestamp with time zone;
+BEGIN
+    IF job_interval IS NULL THEN
+        UPDATE dbms_job.all_scheduled_jobs SET interval = NULL WHERE job = jobid;
+    ELSE
+        -- interval must be in the future
+        next_date := dbms_job.get_next_date(job_interval);
+        IF next_date < current_timestamp THEN
+    	    RAISE EXCEPTION 'Interval must evaluate to a time in the future: %', next_date USING ERRCODE = '23420';
+        END IF;
+        UPDATE dbms_job.all_scheduled_jobs SET interval = job_interval WHERE job = jobid;
+    END IF;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'null_value_not_allowed' USING detail = 'job number is not a job in the job queue';
+    END IF;
+END;
+$$;
+
+-- Removed call function "quote_literal" for parameter "job_interval" on DML UPDATE dbms_job.all_scheduled_jobs SET interval = job_interval WHERE job = jobid;
